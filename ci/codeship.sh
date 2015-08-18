@@ -275,17 +275,20 @@ if [ $BUILD_TYPE == "master" ]; then
         echo "-----------------------------------------------------------------"
         echo
         runAntTarget deployManagedBeta
-        if [[ $? -eq 0 ]]; then break; fi
+        exit_status=${PIPESTATUS[0]}
+        if [[ $exit_status -eq 0 ]]; then break; fi
     done
-    if [[ $? -ne 0 ]]; then exit 1; fi
+    if [[ $exit_status -ne 0 ]]; then exit 1; fi
 
-    echo
-    echo "-----------------------------------------------------------------"
-    echo "ant runAllTests: Testing $PACKAGE_VERSION in beta org"
-    echo "-----------------------------------------------------------------"
-    echo
-    runAntTarget runAllTestsManaged
-    if [[ $? -ne 0 ]]; then exit 1; fi
+    if [ "$RUNALLTESTS_BETA" == "true" ]; then   
+        echo
+        echo "-----------------------------------------------------------------"
+        echo "ant runAllTests: Testing $PACKAGE_VERSION in beta org"
+        echo "-----------------------------------------------------------------"
+        echo
+        runAntTarget runAllTestsManaged
+        if [[ $? -ne 0 ]]; then exit 1; fi
+    fi
     
     if [ "$GITHUB_USERNAME" != "" ]; then   
         # Create GitHub Release
@@ -307,14 +310,15 @@ if [ $BUILD_TYPE == "master" ]; then
         echo "Generating release notes for tag $CURRENT_REL_TAG"
         python $CUMULUSCI_PATH/ci/github/release_notes.py
     
-    
-        # Merge master commit to all open feature branches
-        echo
-        echo "-----------------------------------------------------------------"
-        echo "Merge commit to all open feature branches"
-        echo "-----------------------------------------------------------------"
-        echo
-        python $CUMULUSCI_PATH/ci/github/merge_master_to_feature.py
+        if [ "$GITHUB_MERGE_COMMITS" == "true" ]; then       
+            # Merge master commit to all open feature branches
+            echo
+            echo "-----------------------------------------------------------------"
+            echo "Merge commit to all open feature branches"
+            echo "-----------------------------------------------------------------"
+            echo
+            python $CUMULUSCI_PATH/ci/github/merge_master_to_feature.py
+        fi
     else
         echo
         echo "-----------------------------------------------------------------"
