@@ -47,9 +47,12 @@
         2. Destructive changes are deployed by removing extra metadata in the org vs the metadata in the working directory.
         3. Tests are run
     -->
-    <target name="dev_deploy">
+    <target name="dev_deploy" description="Deploy to dev org; with test and destructive changes (default)">
+        <!-- Update credentials for connecting to the org -->
         <updateCredentials org="dev" />
+        <!-- Call deployment target for default deploy (deploy unpackaged metadata and run tests afterwards) -->
         <antcall target="deploy" />
+        <!-- Call deployment of destructive changes; metadata on the org is compared to the local metadata, destructive changes are generated as a delta and deployed to the Org-->
         <destructive_deploy srcdir="src" />
     </target>
 
@@ -60,9 +63,12 @@
         1. Unpackaged metadata is deployed without running tests.
         2. Destructive changes are deployed by removing extra metadata in the org vs the metadata in the working directory.
     -->
-    <target name="dev_quick_deploy">
+    <target name="dev_quick_deploy" description="Quick deploy to dev org; without test, with destructive changes">
+        <!-- Update credentials for connecting to the org -->
         <updateCredentials org="dev" />
+        <!-- Call deployment target for default deploy, no tests are run -->
         <antcall target="deployWithoutTest" />
+        <!-- Call deployment of destructive changes; metadata on the org is compared to the local metadata, destructive changes are generated as a delta and deployed to the Org-->
         <destructive_deploy srcdir="src" />
     </target>
 
@@ -71,8 +77,10 @@
         Get config metadata (without code) from the dev org to the working directory.
         The changes can then be pushed to the code repository (this should be done by the user)
     -->
-    <target name="dev_retrieve_config">
+    <target name="dev_retrieve_config" description="Pull configuration metadata from dev org to working directory">
+        <!-- Update credentials for connecting to the org -->
         <updateCredentials org="dev" />
+        <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
         <sf:retrieve 
             username="${sf.username}" 
             password="${sf.password}" 
@@ -89,7 +97,7 @@
         Please note that the deployed code is NOT from the working directory
         It also deletes extra metadata in the SIT org that does not exist in the SIT related branch in the code repository.
     -->
-    <target name="sit_deploy">
+    <target name="sit_deploy" description="Deploy to SIT by pulling SIT branch, and deploying with tests and destructive changes">
         <upstream_deploy org="sit" />
     </target>
 
@@ -98,8 +106,10 @@
         This target retrieves SIT metadata into the working directory.
         Usecase for this target is when you've created small changes directly in the SIT org to introduce them to your working directory, so that it can be (re)introduced to code repository through standard process/lifecycle.
     -->
-    <target name="sit_retrieve_config">
+    <target name="sit_retrieve_config" description="Pull configuration metadata from SIT org to working directory">
+        <!-- Update credentials for connecting to the org -->
         <updateCredentials org="sit" />
+        <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
         <sf:retrieve 
             username="${sf.username}" 
             password="${sf.password}" 
@@ -114,7 +124,7 @@
         Please note that the deployed code is NOT from the working directory
         It also deletes extra metadata in the UAT org that does not exist in the UAT related branch in the code repository.
     -->
-    <target name="uat_deploy">
+    <target name="uat_deploy" description="Deploy to UAT by pulling UAT branch, and deploying with tests and destructive changes">
         <upstream_deploy org="uat" />
     </target>
 
@@ -123,8 +133,10 @@
         This target retrieves SIT metadata into the working directory.
         Usecase for this target is when you've created small changes directly in the SIT org to introduce them to your working directory, so that it can be (re)introduced to code repository through standard process/lifecycle.
     -->
-    <target name="uat_retrieve_config">
+    <target name="uat_retrieve_config" description="Pull configuration metadata from UAT org to working directory">
+        <!-- Update credentials for connecting to the org -->
         <updateCredentials org="uat" />
+        <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
         <sf:retrieve 
             username="${sf.username}" 
             password="${sf.password}" 
@@ -139,7 +151,7 @@
         Please note that the deployed code is NOT from the working directory
         It also deletes extra metadata in the PROD org that does not exist in the PROD related branch in the code repository.
     -->
-    <target name="prod_deploy">
+    <target name="prod_deploy" description="Deploy to PROD by pulling PROD branch, and deploying with tests and destructive changes">
         <input>This will start deployment to production!!! If this was not your intention, kill the process NOW!!!</input>
         <upstream_deploy org="prod" />
     </target>
@@ -173,9 +185,13 @@
     <macrodef name="upstream_deploy" description="Deploy to upstream orgs (SIT, UAT, PROD)">
         <attribute name="org" description="Org to deploy to" />
         <sequential>
+            <!-- Update credentials for connecting to the org -->
             <updateCredentials org="@{org}" />
 
+            <!-- Delete temporary directory for deployment metadata -->
             <delete dir="@{org}_deploy" />
+
+            <!-- Clone git repository and checkout the branch related to the org-->
             <exec executable="git" failonerror="true">
                 <arg line="clone ${git.url} @{org}_deploy" />
             </exec>
@@ -183,13 +199,17 @@
                 <arg line="checkout ${@{org}.branch}" />
             </exec>
 
+            <!-- Call predeployment target, deploy the code with running local tests, call post deployment target-->
             <antcall target="preDeploy" />
             <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="@{org}_deploy" testLevel="RunLocalTests" maxPoll="${cumulusci.maxPoll.test}" />
             <antcall target="postDeploy" />
 
             <echo>----------------------------------------------------------------------------</echo>
+
+            <!-- Call deployment of destructive changes; metadata on the org is compared to the local metadata, destructive changes are generated as a delta and deployed to the Org-->
             <destructive_deploy srcdir="@{org}_deploy" />
 
+            <!-- Delete temporary directory for deployment metadata -->
             <delete dir="@{org}_deploy" />
         </sequential>
     </macrodef>
@@ -197,6 +217,8 @@
     <macrodef name="destructive_deploy" description="Generate and deploy destructiv changes between a folder and target org">
         <attribute name="srcdir" description="Source directory with destructive changes" />        
         <sequential>
+
+            <!-- Delete temporary directories-->
             <delete dir="uninstallsrc" />
             <delete dir="uninstall" />
 
@@ -208,25 +230,19 @@
                 retrieveTarget="uninstallsrc" 
                 unpackaged="${cumulus_ci.basedir}/all_meta_types.xml"/>
 
+            <!-- Generate the package.xml from the directory contents -->
+            <buildPackageXmlFromDir dir="uninstallsrc" xmlfile="package.xml" />
             <!-- Build a destructiveChanges.xml pacckage to delete metadata in org but not in repo -->
-            <buildPackageXmlFromDir dir="uninstallsrc" xmkfile="package.xml" />
             <buildDestroyStaleMetadata srcdir="uninstallsrc" commdir="@{srcdir}" dir="uninstall" />
 
             <!-- deploy the destructiveChanges.xml package -->
             <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="uninstall" testLevel="RunLocalTests" maxPoll="${cumulusci.maxPoll.test}" purgeOnDelete="true" />
 
+            <!-- Delete temporary directories-->
             <delete dir="uninstallsrc" />
             <delete dir="uninstall" />
 
         </sequential>
     </macrodef>
-
-    <target name="cs_test">
-        <updateCredentials org="${target_org}"/>
-        <echo>============================================================================</echo>
-        <echo>${sf.username}</echo>
-        <echo>${sf.password}</echo>
-        <echo>${sf.serverurl}</echo>
-    </target>
 
 </project>
