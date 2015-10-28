@@ -231,7 +231,7 @@
                 unpackaged="${cumulus_ci.basedir}/all_meta_types.xml"/>
 
             <!-- Generate the package.xml from the directory contents -->
-            <buildPackageXmlFromDir dir="uninstallsrc" xmlfile="package.xml" />
+            <buildPackageXmlFromDir dir="uninstallsrc" xmlfile="package.xml" version="${cumulusci.package.apiVersion}"/>
             <!-- Build a destructiveChanges.xml pacckage to delete metadata in org but not in repo -->
             <buildDestroyStaleMetadata srcdir="uninstallsrc" commdir="@{srcdir}" dir="uninstall" />
 
