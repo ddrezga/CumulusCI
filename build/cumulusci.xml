@@ -335,6 +335,9 @@ project.setProperty("downgradePackage", result);
             <case value="connectedApps">
               <property name="typename" value="ConnectedApp" />
             </case>
+          	<case value="customMetadata">
+          		<property name="typename" value="CustomMetadata" />
+          	</case>
             <case value="dashboards">
               <property name="typename" value="Dashboard" />
             </case>
@@ -986,7 +989,7 @@ project.setProperty("downgradePackage", result);
               <replaceNamespacePrefix dir="@{stagedir}" nsprefix="@{nsprefix}" />
                 
               <echo>Deploying unpackaged bundle @{subdir}</echo>
-              <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="@{stagedir}" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" />
+              <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="@{stagedir}" maxPoll="${cumulusci.maxPoll.notest}" />
               <delete dir="@{stagedir}" />
             </sequential>
           </for>

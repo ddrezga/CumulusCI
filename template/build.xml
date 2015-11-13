@@ -214,7 +214,7 @@
         </sequential>
     </macrodef>
 
-    <macrodef name="destructive_deploy" description="Generate and deploy destructiv changes between a folder and target org">
+    <macrodef name="destructive_deploy" description="Generate and deploy destructive changes between a folder and target org">
         <attribute name="srcdir" description="Source directory with destructive changes" />        
         <sequential>
 
