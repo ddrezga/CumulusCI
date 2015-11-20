@@ -63,15 +63,33 @@
         1. Unpackaged metadata is deployed without running tests.
         2. Destructive changes are deployed by removing extra metadata in the org vs the metadata in the working directory.
     -->
-    <target name="dev_quick_deploy" description="Quick deploy to dev org; without test, with destructive changes">
+    <target name="dev_quick_deploy" description="Quick deploy to dev org; without test, without destructive changes">
         <!-- Update credentials for connecting to the org -->
         <updateCredentials org="dev" />
         <!-- Call deployment target for default deploy, no tests are run -->
-        <antcall target="deployWithoutTest" />
-        <!-- Call deployment of destructive changes; metadata on the org is compared to the local metadata, destructive changes are generated as a delta and deployed to the Org-->
-        <destructive_deploy srcdir="src" />
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" />
     </target>
 
+    <target name="dev_check_deploy" description="Verify deploy to dev org; without test">
+        <!-- Update credentials for connecting to the org -->
+        <updateCredentials org="dev" />
+        <!-- Call deployment target for default deploy, no tests are run -->
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" checkOnly="true"/>
+     </target>
+
+    <target name="sensedev_check_deploy" description="Verify deploy to dev org; without test">
+        <!-- Update credentials for connecting to the org -->
+        <updateCredentials org="sensedev" />
+        <!-- Call deployment target for default deploy, no tests are run -->
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" checkOnly="true"/>
+     </target>
+
+    <target name="sensedev_quick_deploy" description="Deploy to sensedev org; without test, without destructive changes">
+        <!-- Update credentials for connecting to the org -->
+        <updateCredentials org="sensedev" />
+        <!-- Call deployment target for default deploy, no tests are run -->
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}"/>
+     </target>
     <!--
         Get config metadata :
         Get config metadata (without code) from the dev org to the working directory.
@@ -89,6 +107,17 @@
             unpackaged="${cumulus_ci.basedir}/config_meta_types.xml"/>
     </target>
 
+    <target name="dev_retrieve_all" description="Pull all metadata from dev org to working directory">
+        <!-- Update credentials for connecting to the org -->
+        <updateCredentials org="dev" />
+        <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
+        <sf:retrieve 
+            username="${sf.username}" 
+            password="${sf.password}" 
+            serverurl="${sf.serverurl}" 
+            retrieveTarget="src" 
+            unpackaged="${cumulus_ci.basedir}/all_meta_types.xml"/>
+    </target>
     <!-- SIT and UAT related targets -->
 
     <!--
