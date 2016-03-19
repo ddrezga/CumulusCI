@@ -4,7 +4,7 @@
 
     <!-- Load environment variables -->
     <property environment="env" />
-
+    
     <!-- Check if the CUMULUSCI_PATH environment variable is set -->
     <fail>
         <condition>
@@ -12,12 +12,12 @@
         </condition>
         CUMULUSCI_PATH is Required!
 
-        This project uses the CumulusCI build scripts which must be checked out and 
+        This project uses the CumulusCI build scripts which must be checked out and
         referenced in an environment variable before you can run the build scripts.
 
         To configure the build scripts, do the following:
 
-        1. Clone the CumulusCI GitHub repository to a local folder: 
+        1. Clone the CumulusCI GitHub repository to a local folder:
             https://github.com/SalesforceFoundation/CumulusCI
 
         2. Set the CUMULUSCI_PATH environment variable to the path to CumulusCI
@@ -27,7 +27,7 @@
             git clone https://github.com/SalesforceFoundation/CumulusCI ~/CumulusCI
             export CUMULUSCI_PATH=~/CumulusCI
     </fail>
-    
+
     <!-- Load CumulusCI build targets -->
     <import file="${env.CUMULUSCI_PATH}/build/build.xml" />
 
@@ -53,7 +53,7 @@
         <!-- Call deployment target for default deploy (deploy unpackaged metadata and run tests afterwards) -->
         <antcall target="deploy" />
         <!-- Call deployment of destructive changes; metadata on the org is compared to the local metadata, destructive changes are generated as a delta and deployed to the Org-->
-        <destructive_deploy srcdir="src" />
+        <!-- <destructive_deploy srcdir="src" /> -->
     </target>
 
     <!--
@@ -63,126 +63,170 @@
         1. Unpackaged metadata is deployed without running tests.
         2. Destructive changes are deployed by removing extra metadata in the org vs the metadata in the working directory.
     -->
-    <target name="dev_quick_deploy" description="Quick deploy to dev org; without test, without destructive changes">
+    <target name="quick_deploy" description="Quick deploy to dev org; without test, with destructive changes">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="dev" />
+        <updateCredentials org="${org}" />
         <!-- Call deployment target for default deploy, no tests are run -->
-        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" />
+        <antcall target="deployWithoutTest" />
     </target>
 
-    <target name="dev_check_deploy" description="Verify deploy to dev org; without test">
+    <target name="check_deploy" description="Verify deploy to dev org; without test">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="dev" />
+        <updateCredentials org="${org}" />
+        <echo>${org} - ${sf.username} - ${sf.password} - ${sf.serverurl}</echo>
         <!-- Call deployment target for default deploy, no tests are run -->
         <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" checkOnly="true"/>
-     </target>
+    </target>
 
-    <target name="sensedev_check_deploy" description="Verify deploy to dev org; without test">
+    <target name="check_test_deploy" description="Verify deploy to dev org; without test">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="sensedev" />
+        <updateCredentials org="${org}" />
         <!-- Call deployment target for default deploy, no tests are run -->
-        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}" checkOnly="true"/>
-     </target>
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="RunLocalTests" maxPoll="${cumulusci.maxPoll.notest}" checkOnly="true"/>
+    </target>
 
-    <target name="sensedev_quick_deploy" description="Deploy to sensedev org; without test, without destructive changes">
+    <target name="deploy" description="Deploy to dev org; with test and destructive changes (default)">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="sensedev" />
-        <!-- Call deployment target for default deploy, no tests are run -->
-        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="NoTestRun" maxPoll="${cumulusci.maxPoll.notest}"/>
-     </target>
+        <updateCredentials org="${org}" />
+        <!-- Call deployment target for default deploy (deploy unpackaged metadata and run tests afterwards) -->
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="src" testLevel="RunLocalTests" maxPoll="${cumulusci.maxPoll.notest}" />
+    </target>
     <!--
         Get config metadata :
         Get config metadata (without code) from the dev org to the working directory.
         The changes can then be pushed to the code repository (this should be done by the user)
     -->
-    <target name="dev_retrieve_config" description="Pull configuration metadata from dev org to working directory">
+    <target name="retrieve_config" description="Pull configuration metadata from dev org to working directory">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="dev" />
+        <updateCredentials org="${org}" />
         <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
-        <sf:retrieve 
-            username="${sf.username}" 
-            password="${sf.password}" 
-            serverurl="${sf.serverurl}" 
-            retrieveTarget="src" 
+        <delete dir="${org}_metadata" />
+        <mkdir dir="${org}_metadata" />
+        <sf:retrieve
+            username="${sf.username}"
+            password="${sf.password}"
+            serverurl="${sf.serverurl}"
+            retrieveTarget="{org}_config_metadata"
             unpackaged="${cumulus_ci.basedir}/config_meta_types.xml"/>
     </target>
 
-    <target name="dev_retrieve_all" description="Pull all metadata from dev org to working directory">
+    <target name="retrieve_everything" description="Pull configuration metadata from dev org to working directory">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="dev" />
+        <updateCredentials org="${org}" />
         <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
-        <sf:retrieve 
-            username="${sf.username}" 
-            password="${sf.password}" 
-            serverurl="${sf.serverurl}" 
-            retrieveTarget="src" 
+        <delete dir="${org}_config_metadata" />
+        <mkdir dir="${org}_config_metadata" />
+        <sf:retrieve
+            username="${sf.username}"
+            password="${sf.password}"
+            serverurl="${sf.serverurl}"
+            retrieveTarget="${org}_config_metadata"
             unpackaged="${cumulus_ci.basedir}/all_meta_types.xml"/>
     </target>
-    <!-- SIT and UAT related targets -->
 
-    <!--
-        Deploy to SIT
-        This target clones the repository from git and deploys the unpackaged code to the SIT org.
-        Please note that the deployed code is NOT from the working directory
-        It also deletes extra metadata in the SIT org that does not exist in the SIT related branch in the code repository.
-    -->
-    <target name="sit_deploy" description="Deploy to SIT by pulling SIT branch, and deploying with tests and destructive changes">
-        <upstream_deploy org="sit" />
-    </target>
-
-    <!--
-        Retrieve SIT metadata
-        This target retrieves SIT metadata into the working directory.
-        Usecase for this target is when you've created small changes directly in the SIT org to introduce them to your working directory, so that it can be (re)introduced to code repository through standard process/lifecycle.
-    -->
-    <target name="sit_retrieve_config" description="Pull configuration metadata from SIT org to working directory">
+    <target name="retrieve_all" description="Pull all metadata from dev org to working directory">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="sit" />
+        <updateCredentials org="${org}" />
         <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
-        <sf:retrieve 
-            username="${sf.username}" 
-            password="${sf.password}" 
-            serverurl="${sf.serverurl}" 
-            retrieveTarget="src" 
-            unpackaged="${cumulus_ci.basedir}/config_meta_types.xml"/>
+        <delete dir="${org}_metadata" />
+        <mkdir dir="${org}_metadata" />
+        <sf:retrieve
+            username="${sf.username}"
+            password="${sf.password}"
+            serverurl="${sf.serverurl}"
+            retrieveTarget="${org}_metadata"
+            unpackaged="src/package.xml"/>
     </target>
 
-    <!--
-        Deploy to UAT
-        This target clones the repository from git and deploys the unpackaged code to the UAT org.
-        Please note that the deployed code is NOT from the working directory
-        It also deletes extra metadata in the UAT org that does not exist in the UAT related branch in the code repository.
-    -->
-    <target name="uat_deploy" description="Deploy to UAT by pulling UAT branch, and deploying with tests and destructive changes">
-        <upstream_deploy org="uat" />
-    </target>
-
-    <!--
-        Retrieve SIT metadata
-        This target retrieves SIT metadata into the working directory.
-        Usecase for this target is when you've created small changes directly in the SIT org to introduce them to your working directory, so that it can be (re)introduced to code repository through standard process/lifecycle.
-    -->
-    <target name="uat_retrieve_config" description="Pull configuration metadata from UAT org to working directory">
+    <target name="list_metadata" description="Pull all metadata from dev org to working directory">
         <!-- Update credentials for connecting to the org -->
-        <updateCredentials org="uat" />
+        <updateCredentials org="${org}" />
         <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
-        <sf:retrieve 
-            username="${sf.username}" 
-            password="${sf.password}" 
-            serverurl="${sf.serverurl}" 
-            retrieveTarget="src" 
-            unpackaged="${cumulus_ci.basedir}/config_meta_types.xml"/>
+        <sf:listMetadata
+            username="${sf.username}"
+            password="${sf.password}"
+            serverurl="${sf.serverurl}"
+            metadataType="${type}"
+            resultFilePath="../${type}.log"/>
     </target>
 
-    <!--
-        Deploy to PROD
-        This target clones the repository from git and deploys the unpackaged code to the UAT org.
-        Please note that the deployed code is NOT from the working directory
-        It also deletes extra metadata in the PROD org that does not exist in the PROD related branch in the code repository.
-    -->
-    <target name="prod_deploy" description="Deploy to PROD by pulling PROD branch, and deploying with tests and destructive changes">
-        <input>This will start deployment to production!!! If this was not your intention, kill the process NOW!!!</input>
-        <upstream_deploy org="prod" />
+    <target name="create_destructive_changes_package" description="Create destructive changes between src and dest branch">
+        <delete dir="../temp" />
+        <exec executable="git" failonerror="true">
+            <arg line="clone -b ${src} --single-branch .git ../temp/${src}_branch" />
+        </exec>
+        <exec executable="git" failonerror="true">
+            <arg line="clone -b ${dest} --single-branch .git ../temp/${dest}_branch" />
+        </exec>
+        <!-- <buildPackageXmlFromDir dir="../temp/${src}_branch/src" xmlfile="../temp/${src}_branch/src/package.xml" version="${cumulusci.package.apiVersion}"/> -->
+        <!-- <buildPackageXmlFromDir dir="../temp/${dest}_branch/src" xmlfile="../temp/${dest}_branch/src/package.xml" version="${cumulusci.package.apiVersion}"/> -->
+        <buildDestroyStaleMetadata srcdir="../temp/${src}_branch/src" commdir="../temp/${dest}_branch/src" dir="../uninstall" />
+        <delete dir="../temp" />
+        <copy todir="../uninstall" flatten="true">
+            <resources>
+                <file file="build.properties"/>
+                <file file="build.xml"/>
+                <file file="cumulusci.properties"/>
+                <file file="version.properties"/>
+            </resources>
+        </copy>
+    </target>
+
+    <target name="create_destructive_changes_metadata" description="Create destructive changes between src and dest branch">
+        <delete dir="../temp" />
+        <exec executable="git" failonerror="true">
+            <arg line="clone -b ${src} --single-branch .git ../temp/${src}_branch" />
+        </exec>
+        <exec executable="git" failonerror="true">
+            <arg line="clone -b ${dest} --single-branch .git ../temp/${dest}_branch" />
+        </exec>
+        <buildPackageXmlFromDir dir="../temp/${src}_branch/src" xmlfile="../temp/${src}_branch/src/package.xml" version="${cumulusci.package.apiVersion}"/>
+        <buildPackageXmlFromDir dir="../temp/${dest}_branch/src" xmlfile="../temp/${dest}_branch/src/package.xml" version="${cumulusci.package.apiVersion}"/>
+        <buildDestroyStaleMetadata srcdir="../temp/${src}_branch/src" commdir="../temp/${dest}_branch/src" dir="../uninstall" />
+        <delete dir="../temp" />
+        <copy todir="../uninstall" flatten="true">
+            <resources>
+                <file file="build.properties"/>
+                <file file="build.xml"/>
+                <file file="cumulusci.properties"/>
+                <file file="version.properties"/>
+            </resources>
+        </copy>
+    </target>
+
+    <target name="create_destructive_changes_org" description="Create destructive changes between src and dest branch">
+        <delete dir="../temp" />
+        <exec executable="git" failonerror="true">
+            <arg line="clone -b ${src} --single-branch .git ../temp/${src}_branch" />
+        </exec>
+        <updateCredentials org="${org}" />
+        <!-- Retrieve unpackaged config metadata to the local directory (no "code" is retrieved) -->
+        <mkdir dir="../temp/${org}_metadata" />
+        <sf:retrieve
+            username="${sf.username}"
+            password="${sf.password}"
+            serverurl="${sf.serverurl}"
+            retrieveTarget="../temp/${org}_metadata"
+            unpackaged="src/package.xml"/>
+        <buildPackageXmlFromDir dir="../temp/${src}_branch/src" xmlfile="../temp/${src}_branch/src/package.xml" version="${cumulusci.package.apiVersion}"/>
+        <buildPackageXmlFromDir dir="../temp/${org}_metadata/src" xmlfile="../temp/${org}_metadata/src/package.xml" version="${cumulusci.package.apiVersion}"/>
+        <buildDestroyStaleMetadata srcdir="../temp/${src}_branch/src" commdir="../temp/${org}_metadata/src" dir="../uninstall" />
+        <delete dir="../temp" />
+        <copy todir="../uninstall" flatten="true">
+            <resources>
+                <file file="build.properties"/>
+                <file file="build.xml"/>
+                <file file="cumulusci.properties"/>
+                <file file="version.properties"/>
+            </resources>
+        </copy>
+    </target>
+
+    <target name="destructive_deploy" description="Quick deploy to dev org; without test, with destructive changes">
+        <!-- Update credentials for connecting to the org -->
+        <updateCredentials org="${org}" />
+        <!-- deploy the destructiveChanges.xml package -->
+        <sf:deploy username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" deployRoot="../uninstall" testLevel="RunLocalTests" maxPoll="${cumulusci.maxPoll.test}" purgeOnDelete="true" />
     </target>
 
     <!--
@@ -243,8 +287,8 @@
         </sequential>
     </macrodef>
 
-    <macrodef name="destructive_deploy" description="Generate and deploy destructive changes between a folder and target org">
-        <attribute name="srcdir" description="Source directory with destructive changes" />        
+    <macrodef name="destructive_gen_deploy" description="Generate and deploy destructive changes between a folder and target org">
+        <attribute name="srcdir" description="Source directory with destructive changes" />
         <sequential>
 
             <!-- Delete temporary directories-->
@@ -252,11 +296,11 @@
             <delete dir="uninstall" />
 
             <!-- Fetch all metadata in the  package from target org -->
-            <sf:retrieve 
-                username="${sf.username}" 
-                password="${sf.password}" 
-                serverurl="${sf.serverurl}" 
-                retrieveTarget="uninstallsrc" 
+            <sf:retrieve
+                username="${sf.username}"
+                password="${sf.password}"
+                serverurl="${sf.serverurl}"
+                retrieveTarget="uninstallsrc"
                 unpackaged="${cumulus_ci.basedir}/all_meta_types.xml"/>
 
             <!-- Generate the package.xml from the directory contents -->
